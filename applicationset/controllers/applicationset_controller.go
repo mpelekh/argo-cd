@@ -781,6 +781,8 @@ func (r *ApplicationSetReconciler) getCurrentApplications(ctx context.Context, a
 		return nil, fmt.Errorf("error retrieving applications: %w", err)
 	}
 
+	log.WithField("fn", "getCurrentApplications").Debugf("observed %#v", current.Items)
+
 	return current.Items, nil
 }
 
@@ -966,6 +968,8 @@ func (r *ApplicationSetReconciler) performProgressiveSyncs(ctx context.Context, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to update applicationset application status conditions: %w", err)
 	}
+
+	log.WithField("fn", "buildAppSyncMap").Debugf("observed %#v", appSyncMap)
 
 	return appSyncMap, nil
 }
@@ -1381,6 +1385,8 @@ func (r *ApplicationSetReconciler) setAppSetApplicationStatus(ctx context.Contex
 		for i := range applicationStatuses {
 			applicationSet.Status.SetApplicationStatus(applicationStatuses[i])
 		}
+
+		log.WithField("fn", "setAppSetApplicationStatus").Debugf("observed %#v", applicationSet.Status.ApplicationStatus)
 
 		// Update the newly fetched object with new set of ApplicationStatus
 		err := r.Client.Status().Update(ctx, applicationSet)
