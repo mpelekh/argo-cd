@@ -1446,8 +1446,8 @@ github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00/go.mod
 github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe/go.mod h1:wL8QJuTMNUDYhXwkmfOly8iTdp5TEcJFWZD2D7SIkUc=
 github.com/montanaflynn/stats v0.6.6/go.mod h1:etXPPgVO6n31NxCd9KQUMvCM+ve0ruNzt6R8Bnaayow=
 github.com/moul/http2curl v1.0.0/go.mod h1:8UbvGypXm98wA/IqH45anm5Y2Z6ep6O31QGOAZ3H0fQ=
-github.com/mpelekh/gitops-engine v0.0.0-20240722140010-d3f92977f56a h1:1d2Km7viI4MApicMDI2HT7mjMxCLrKF9baOKRxROroc=
-github.com/mpelekh/gitops-engine v0.0.0-20240722140010-d3f92977f56a/go.mod h1:xMIbuLg9Qj2e0egTy+8NcukbhRaVmWwK9vm3aAQZoi4=
+github.com/mpelekh/gitops-engine v0.0.0-20240722143750-6a1fda3c9245 h1:FiPcvtBiGabg+wder7i2GEDGgoBjRTcmltCZIL9QTmo=
+github.com/mpelekh/gitops-engine v0.0.0-20240722143750-6a1fda3c9245/go.mod h1:xMIbuLg9Qj2e0egTy+8NcukbhRaVmWwK9vm3aAQZoi4=
 github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
