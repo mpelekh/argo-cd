@@ -291,7 +291,6 @@ func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.D
 
 // ObserveResourceLockAcquireDuration observes resource lock acquire duration
 func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server string, duration time.Duration) {
-	log.Infof("[mpelekh][remove] in ObserveResourceLockAcquireDuration kind=%s, namespace=%s, server=%s, duration=%v", kind, namespace, server, duration)
 	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server).Observe(duration.Seconds())
 }
 
