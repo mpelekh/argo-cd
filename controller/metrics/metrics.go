@@ -38,6 +38,7 @@ type MetricsServer struct {
 	reconcileHistogram           *prometheus.HistogramVec
 	redisRequestHistogram        *prometheus.HistogramVec
 	resourceLockAcquireHistogram *prometheus.HistogramVec
+	eventsResultChanLength       *prometheus.GaugeVec
 
 	registry *prometheus.Registry
 	hostname string
@@ -152,6 +153,14 @@ var (
 		},
 		[]string{"kind", "namespace", "server"},
 	)
+
+	eventsResultChanLength = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "events_result_chan_length",
+			Help: "Current length of the events result channel",
+		},
+		[]string{"kind", "namespace", "server"},
+	)
 )
 
 // NewMetricsServer returns a new prometheus server which collects application metrics
@@ -192,6 +201,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(redisRequestCounter)
 	registry.MustRegister(redisRequestHistogram)
 	registry.MustRegister(resourceLockAcquireHistogram)
+	registry.MustRegister(eventsResultChanLength)
 
 	return &MetricsServer{
 		registry: registry,
@@ -208,6 +218,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		redisRequestCounter:          redisRequestCounter,
 		redisRequestHistogram:        redisRequestHistogram,
 		resourceLockAcquireHistogram: resourceLockAcquireHistogram,
+		eventsResultChanLength:       eventsResultChanLength,
 		hostname:                     hostname,
 		// This cron is used to expire the metrics cache.
 		// Currently clearing the metrics cache is logging and deleting from the map
@@ -294,6 +305,11 @@ func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, serv
 	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server).Observe(duration.Seconds())
 }
 
+// SetEventsResultChanLength sets the length of the events result channel
+func (m *MetricsServer) SetEventsResultChanLength(kind, namespace, server string, length int) {
+	m.eventsResultChanLength.WithLabelValues(kind, namespace, server).Set(float64(length))
+}
+
 // HasExpiration return true if expiration is set
 func (m *MetricsServer) HasExpiration() bool {
 	return len(m.cron.Entries()) > 0
@@ -316,6 +332,7 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		m.reconcileHistogram.Reset()
 		m.redisRequestHistogram.Reset()
 		m.resourceLockAcquireHistogram.Reset()
+		m.eventsResultChanLength.Reset()
 	})
 	if err != nil {
 		return err
