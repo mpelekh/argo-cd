@@ -566,6 +566,10 @@ func (c *liveStateCache) getCluster(server string) (clustercache.ClusterCache, e
 		c.metricsServer.ObserveResourceEventProcessingDuration(un.GetKind(), un.GetNamespace(), cluster.Server, string(event), duration)
 	})
 
+	_ = clusterCache.OnIterateHierarchyHandler(func(kind, namespace string, duration, acquireLockDuration time.Duration) {
+		c.metricsServer.ObserveHierarchyIterationDuration(kind, namespace, cluster.Server, duration, acquireLockDuration)
+	})
+
 	c.clusters[server] = clusterCache
 
 	return clusterCache, nil
