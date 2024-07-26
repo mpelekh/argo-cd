@@ -38,7 +38,7 @@ type MetricsServer struct {
 	reconcileHistogram           *prometheus.HistogramVec
 	redisRequestHistogram        *prometheus.HistogramVec
 	resourceLockAcquireHistogram *prometheus.HistogramVec
-	eventsResultChanLength       *prometheus.GaugeVec
+	resourceEventProcessing      *prometheus.HistogramVec
 
 	registry *prometheus.Registry
 	hostname string
@@ -151,15 +151,16 @@ var (
 			Help:    "Time to acquire a resource lock in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server"},
+		[]string{"kind", "namespace", "server", "event"},
 	)
 
-	eventsResultChanLength = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "argocd_events_result_chan_length",
-			Help: "Current length of the events result channel",
+	resourceEventProcessingHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_resource_event_processing",
+			Help:    "Time to process resource event in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server"},
+		[]string{"kind", "namespace", "server", "event"},
 	)
 )
 
@@ -201,7 +202,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(redisRequestCounter)
 	registry.MustRegister(redisRequestHistogram)
 	registry.MustRegister(resourceLockAcquireHistogram)
-	registry.MustRegister(eventsResultChanLength)
+	registry.MustRegister(resourceEventProcessingHistogram)
 
 	return &MetricsServer{
 		registry: registry,
@@ -218,7 +219,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		redisRequestCounter:          redisRequestCounter,
 		redisRequestHistogram:        redisRequestHistogram,
 		resourceLockAcquireHistogram: resourceLockAcquireHistogram,
-		eventsResultChanLength:       eventsResultChanLength,
+		resourceEventProcessing:      resourceEventProcessingHistogram,
 		hostname:                     hostname,
 		// This cron is used to expire the metrics cache.
 		// Currently clearing the metrics cache is logging and deleting from the map
@@ -301,13 +302,13 @@ func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.D
 }
 
 // ObserveResourceLockAcquireDuration observes resource lock acquire duration
-func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server string, duration time.Duration) {
-	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server).Observe(duration.Seconds())
+func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server, event string, duration time.Duration) {
+	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
 }
 
-// SetEventsResultChanLength sets the length of the events result channel
-func (m *MetricsServer) SetEventsResultChanLength(kind, namespace, server string, length int) {
-	m.eventsResultChanLength.WithLabelValues(kind, namespace, server).Set(float64(length))
+// ObserveResourceEventProcessingDuration observes resource event processing duration
+func (m *MetricsServer) ObserveResourceEventProcessingDuration(kind, namespace, server, event string, duration time.Duration) {
+	m.resourceEventProcessing.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
 }
 
 // HasExpiration return true if expiration is set
@@ -332,7 +333,7 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		m.reconcileHistogram.Reset()
 		m.redisRequestHistogram.Reset()
 		m.resourceLockAcquireHistogram.Reset()
-		m.eventsResultChanLength.Reset()
+		m.resourceEventProcessing.Reset()
 	})
 	if err != nil {
 		return err

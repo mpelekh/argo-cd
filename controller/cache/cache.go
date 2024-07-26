@@ -559,11 +559,11 @@ func (c *liveStateCache) getCluster(server string) (clustercache.ClusterCache, e
 	})
 
 	_ = clusterCache.OnResourceLockAcquire(func(event watch.EventType, un *unstructured.Unstructured, duration time.Duration) {
-		c.metricsServer.ObserveResourceLockAcquireDuration(un.GetKind(), un.GetNamespace(), cluster.Server, duration)
+		c.metricsServer.ObserveResourceLockAcquireDuration(un.GetKind(), un.GetNamespace(), cluster.Server, string(event), duration)
 	})
 
-	_ = clusterCache.OnProcessEventHandler(func(event watch.EventType, un *unstructured.Unstructured, count int) {
-		c.metricsServer.SetEventsResultChanLength(un.GetKind(), un.GetNamespace(), cluster.Server, count)
+	_ = clusterCache.OnProcessEventHandler(func(event watch.EventType, un *unstructured.Unstructured, duration time.Duration) {
+		c.metricsServer.ObserveResourceEventProcessingDuration(un.GetKind(), un.GetNamespace(), cluster.Server, string(event), duration)
 	})
 
 	c.clusters[server] = clusterCache
