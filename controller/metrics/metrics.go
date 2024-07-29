@@ -29,17 +29,22 @@ import (
 
 type MetricsServer struct {
 	*http.Server
-	syncCounter             *prometheus.CounterVec
-	kubectlExecCounter      *prometheus.CounterVec
-	kubectlExecPendingGauge *prometheus.GaugeVec
-	k8sRequestCounter       *prometheus.CounterVec
-	clusterEventsCounter    *prometheus.CounterVec
-	redisRequestCounter     *prometheus.CounterVec
-	reconcileHistogram      *prometheus.HistogramVec
-	redisRequestHistogram   *prometheus.HistogramVec
-	registry                *prometheus.Registry
-	hostname                string
-	cron                    *cron.Cron
+	syncCounter                            *prometheus.CounterVec
+	kubectlExecCounter                     *prometheus.CounterVec
+	kubectlExecPendingGauge                *prometheus.GaugeVec
+	k8sRequestCounter                      *prometheus.CounterVec
+	clusterEventsCounter                   *prometheus.CounterVec
+	redisRequestCounter                    *prometheus.CounterVec
+	reconcileHistogram                     *prometheus.HistogramVec
+	redisRequestHistogram                  *prometheus.HistogramVec
+	resourceLockAcquireHistogram           *prometheus.HistogramVec
+	resourceEventProcessingHistogram       *prometheus.HistogramVec
+	hierarchyIterationHistogram            *prometheus.HistogramVec
+	lockAcquireHierarchyIterationHistogram *prometheus.HistogramVec
+
+	registry *prometheus.Registry
+	hostname string
+	cron     *cron.Cron
 }
 
 const (
@@ -141,6 +146,42 @@ var (
 		},
 		[]string{"hostname", "initiator"},
 	)
+
+	resourceLockAcquireHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_resource_lock_acquire",
+			Help:    "Time to acquire a resource lock in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+		},
+		[]string{"kind", "namespace", "server", "event"},
+	)
+
+	resourceEventProcessingHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_resource_event_processing",
+			Help:    "Time to process resource event in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+		},
+		[]string{"kind", "namespace", "server", "event"},
+	)
+
+	hierarchyIterationHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_hierarchy_iteration",
+			Help:    "Time to iterate over the application hierarchy in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+		},
+		[]string{"kind", "namespace", "server"},
+	)
+
+	lockAcquireHierarchyIterationHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_lock_acquire_hierarchy_iteration",
+			Help:    "Time to iterate over the application hierarchy in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+		},
+		[]string{"kind", "namespace", "server"},
+	)
 )
 
 // NewMetricsServer returns a new prometheus server which collects application metrics
@@ -180,6 +221,10 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(clusterEventsCounter)
 	registry.MustRegister(redisRequestCounter)
 	registry.MustRegister(redisRequestHistogram)
+	registry.MustRegister(resourceLockAcquireHistogram)
+	registry.MustRegister(resourceEventProcessingHistogram)
+	registry.MustRegister(hierarchyIterationHistogram)
+	registry.MustRegister(lockAcquireHierarchyIterationHistogram)
 
 	return &MetricsServer{
 		registry: registry,
@@ -187,15 +232,19 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 			Addr:    addr,
 			Handler: mux,
 		},
-		syncCounter:             syncCounter,
-		k8sRequestCounter:       k8sRequestCounter,
-		kubectlExecCounter:      kubectlExecCounter,
-		kubectlExecPendingGauge: kubectlExecPendingGauge,
-		reconcileHistogram:      reconcileHistogram,
-		clusterEventsCounter:    clusterEventsCounter,
-		redisRequestCounter:     redisRequestCounter,
-		redisRequestHistogram:   redisRequestHistogram,
-		hostname:                hostname,
+		syncCounter:                            syncCounter,
+		k8sRequestCounter:                      k8sRequestCounter,
+		kubectlExecCounter:                     kubectlExecCounter,
+		kubectlExecPendingGauge:                kubectlExecPendingGauge,
+		reconcileHistogram:                     reconcileHistogram,
+		clusterEventsCounter:                   clusterEventsCounter,
+		redisRequestCounter:                    redisRequestCounter,
+		redisRequestHistogram:                  redisRequestHistogram,
+		resourceLockAcquireHistogram:           resourceLockAcquireHistogram,
+		resourceEventProcessingHistogram:       resourceEventProcessingHistogram,
+		hierarchyIterationHistogram:            hierarchyIterationHistogram,
+		lockAcquireHierarchyIterationHistogram: lockAcquireHierarchyIterationHistogram,
+		hostname:                               hostname,
 		// This cron is used to expire the metrics cache.
 		// Currently clearing the metrics cache is logging and deleting from the map
 		// so there is no possibility of panic, but we will add a chain to keep robfig/cron v1 behavior.
@@ -276,6 +325,22 @@ func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.D
 	m.reconcileHistogram.WithLabelValues(app.Namespace, app.Spec.Destination.Server).Observe(duration.Seconds())
 }
 
+// ObserveResourceLockAcquireDuration observes resource lock acquire duration
+func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server, event string, duration time.Duration) {
+	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+}
+
+// ObserveResourceEventProcessingDuration observes resource event processing duration
+func (m *MetricsServer) ObserveResourceEventProcessingDuration(kind, namespace, server, event string, duration time.Duration) {
+	m.resourceEventProcessingHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+}
+
+// ObserveHierarchyIterationDuration observes hierarchy iteration duration
+func (m *MetricsServer) ObserveHierarchyIterationDuration(kind, namespace, server string, duration, acquireLockDuration time.Duration) {
+	m.hierarchyIterationHistogram.WithLabelValues(kind, namespace, server).Observe(duration.Seconds())
+	m.lockAcquireHierarchyIterationHistogram.WithLabelValues(kind, namespace, server).Observe(acquireLockDuration.Seconds())
+}
+
 // HasExpiration return true if expiration is set
 func (m *MetricsServer) HasExpiration() bool {
 	return len(m.cron.Entries()) > 0
@@ -297,6 +362,10 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		m.redisRequestCounter.Reset()
 		m.reconcileHistogram.Reset()
 		m.redisRequestHistogram.Reset()
+		m.resourceLockAcquireHistogram.Reset()
+		m.resourceEventProcessingHistogram.Reset()
+		m.hierarchyIterationHistogram.Reset()
+		m.lockAcquireHierarchyIterationHistogram.Reset()
 	})
 	if err != nil {
 		return err
