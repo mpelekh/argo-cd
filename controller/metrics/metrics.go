@@ -153,7 +153,7 @@ var (
 			Help:    "Time to acquire a resource lock in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server", "event"},
+		[]string{"namespace", "server"},
 	)
 
 	resourceEventProcessingHistogram = prometheus.NewHistogramVec(
@@ -162,7 +162,7 @@ var (
 			Help:    "Time to process resource event in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server", "event"},
+		[]string{"namespace", "server"},
 	)
 
 	hierarchyIterationHistogram = prometheus.NewHistogramVec(
@@ -171,7 +171,7 @@ var (
 			Help:    "Time to iterate over the application hierarchy in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server"},
+		[]string{"namespace", "server"},
 	)
 
 	lockAcquireHierarchyIterationHistogram = prometheus.NewHistogramVec(
@@ -180,7 +180,7 @@ var (
 			Help:    "Time to iterate over the application hierarchy in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server"},
+		[]string{"namespace", "server"},
 	)
 )
 
@@ -327,18 +327,18 @@ func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.D
 
 // ObserveResourceLockAcquireDuration observes resource lock acquire duration
 func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server, event string, duration time.Duration) {
-	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+	m.resourceLockAcquireHistogram.WithLabelValues(namespace, server).Observe(duration.Seconds())
 }
 
 // ObserveResourceEventProcessingDuration observes resource event processing duration
 func (m *MetricsServer) ObserveResourceEventProcessingDuration(kind, namespace, server, event string, duration time.Duration) {
-	m.resourceEventProcessingHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+	m.resourceEventProcessingHistogram.WithLabelValues(namespace, server).Observe(duration.Seconds())
 }
 
 // ObserveHierarchyIterationDuration observes hierarchy iteration duration
 func (m *MetricsServer) ObserveHierarchyIterationDuration(kind, namespace, server string, duration, acquireLockDuration time.Duration) {
-	m.hierarchyIterationHistogram.WithLabelValues(kind, namespace, server).Observe(duration.Seconds())
-	m.lockAcquireHierarchyIterationHistogram.WithLabelValues(kind, namespace, server).Observe(acquireLockDuration.Seconds())
+	m.hierarchyIterationHistogram.WithLabelValues(namespace, server).Observe(duration.Seconds())
+	m.lockAcquireHierarchyIterationHistogram.WithLabelValues(namespace, server).Observe(acquireLockDuration.Seconds())
 }
 
 // HasExpiration return true if expiration is set
