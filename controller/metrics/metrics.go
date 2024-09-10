@@ -39,6 +39,8 @@ type MetricsServer struct {
 	redisRequestHistogram                  *prometheus.HistogramVec
 	resourceLockAcquireHistogram           *prometheus.HistogramVec
 	resourceEventProcessingHistogram       *prometheus.HistogramVec
+	resourceEventsProcessingHistogram      *prometheus.HistogramVec
+	resourceEventsNumberGauge              *prometheus.GaugeVec
 	hierarchyIterationHistogram            *prometheus.HistogramVec
 	lockAcquireHierarchyIterationHistogram *prometheus.HistogramVec
 
@@ -153,7 +155,7 @@ var (
 			Help:    "Time to acquire a resource lock in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server", "event"},
+		[]string{"server"},
 	)
 
 	resourceEventProcessingHistogram = prometheus.NewHistogramVec(
@@ -162,8 +164,22 @@ var (
 			Help:    "Time to process resource event in seconds.",
 			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
 		},
-		[]string{"kind", "namespace", "server", "event"},
+		[]string{"server"},
 	)
+
+	resourceEventsProcessingHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "argocd_resource_events_processing",
+			Help:    "Time to process resource events in seconds.",
+			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+		},
+		[]string{"server"},
+	)
+
+	resourceEventsNumberGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "argocd_resource_events_number",
+		Help: "Number of processed resource events",
+	}, []string{"server"})
 
 	hierarchyIterationHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -223,6 +239,8 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(redisRequestHistogram)
 	registry.MustRegister(resourceLockAcquireHistogram)
 	registry.MustRegister(resourceEventProcessingHistogram)
+	registry.MustRegister(resourceEventsProcessingHistogram)
+	registry.MustRegister(resourceEventsNumberGauge)
 	registry.MustRegister(hierarchyIterationHistogram)
 	registry.MustRegister(lockAcquireHierarchyIterationHistogram)
 
@@ -242,6 +260,8 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		redisRequestHistogram:                  redisRequestHistogram,
 		resourceLockAcquireHistogram:           resourceLockAcquireHistogram,
 		resourceEventProcessingHistogram:       resourceEventProcessingHistogram,
+		resourceEventsProcessingHistogram:      resourceEventsProcessingHistogram,
+		resourceEventsNumberGauge:              resourceEventsNumberGauge,
 		hierarchyIterationHistogram:            hierarchyIterationHistogram,
 		lockAcquireHierarchyIterationHistogram: lockAcquireHierarchyIterationHistogram,
 		hostname:                               hostname,
@@ -326,13 +346,19 @@ func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.D
 }
 
 // ObserveResourceLockAcquireDuration observes resource lock acquire duration
-func (m *MetricsServer) ObserveResourceLockAcquireDuration(kind, namespace, server, event string, duration time.Duration) {
-	m.resourceLockAcquireHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+func (m *MetricsServer) ObserveResourceLockAcquireDuration(server string, duration time.Duration) {
+	m.resourceLockAcquireHistogram.WithLabelValues(server).Observe(duration.Seconds())
 }
 
 // ObserveResourceEventProcessingDuration observes resource event processing duration
-func (m *MetricsServer) ObserveResourceEventProcessingDuration(kind, namespace, server, event string, duration time.Duration) {
-	m.resourceEventProcessingHistogram.WithLabelValues(kind, namespace, server, event).Observe(duration.Seconds())
+func (m *MetricsServer) ObserveResourceEventProcessingDuration(server string, duration time.Duration) {
+	m.resourceEventProcessingHistogram.WithLabelValues(server).Observe(duration.Seconds())
+}
+
+// ObserveResourceEventsProcessingDuration observes resource events processing duration
+func (m *MetricsServer) ObserveResourceEventsProcessingDuration(server string, duration time.Duration, processedEventsNumber int) {
+	m.resourceEventsProcessingHistogram.WithLabelValues(server).Observe(duration.Seconds())
+	m.resourceEventsNumberGauge.WithLabelValues(server).Set(float64(processedEventsNumber))
 }
 
 // ObserveHierarchyIterationDuration observes hierarchy iteration duration
@@ -364,6 +390,8 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		m.redisRequestHistogram.Reset()
 		m.resourceLockAcquireHistogram.Reset()
 		m.resourceEventProcessingHistogram.Reset()
+		m.resourceEventsProcessingHistogram.Reset()
+		m.resourceEventsNumberGauge.Reset()
 		m.hierarchyIterationHistogram.Reset()
 		m.lockAcquireHierarchyIterationHistogram.Reset()
 	})

@@ -580,12 +580,16 @@ func (c *liveStateCache) getCluster(server string) (clustercache.ClusterCache, e
 		c.metricsServer.IncClusterEventsCount(cluster.Server, gvk.Group, gvk.Kind)
 	})
 
-	_ = clusterCache.OnResourceLockAcquire(func(event watch.EventType, un *unstructured.Unstructured, duration time.Duration) {
-		c.metricsServer.ObserveResourceLockAcquireDuration(un.GetKind(), un.GetNamespace(), cluster.Server, string(event), duration)
+	_ = clusterCache.OnResourceLockAcquire(func(duration time.Duration) {
+		c.metricsServer.ObserveResourceLockAcquireDuration(cluster.Server, duration)
 	})
 
-	_ = clusterCache.OnProcessEventHandler(func(event watch.EventType, un *unstructured.Unstructured, duration time.Duration) {
-		c.metricsServer.ObserveResourceEventProcessingDuration(un.GetKind(), un.GetNamespace(), cluster.Server, string(event), duration)
+	_ = clusterCache.OnProcessEventHandler(func(duration time.Duration) {
+		c.metricsServer.ObserveResourceEventProcessingDuration(cluster.Server, duration)
+	})
+
+	_ = clusterCache.OnProcessEventsHandler(func(duration time.Duration, processedEventsNumber int) {
+		c.metricsServer.ObserveResourceEventsProcessingDuration(cluster.Server, duration, processedEventsNumber)
 	})
 
 	_ = clusterCache.OnIterateHierarchyHandler(func(kind, namespace string, duration, acquireLockDuration time.Duration) {
